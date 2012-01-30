@@ -85,15 +85,25 @@ function onStart(localRequest, localResponse)
 
 var server = http.createServer(onStart);
 
-server.on("upgrade", function(socket)
+server.on("socket", function(socket)
 {
 	console.log("socket");
 });
 
 server.on("upgrade", function(request, socket, head)
 {
-	console.log("upgrade");
-	socket.end();
+	var message = "HTTP/1.0 501 Not Implemented\r\n" +
+		"Content-Type: text/plain\r\n" +
+		"\r\n" +
+		"The request type is not supported by the proxy server\r\n";
+
+	console.log("Received upgrade request.");
+
+	socket.write(message, "utf-8", function()
+	{
+		console.log("Closing socket connection.");
+		socket.end();
+	});
 });
 
 server.listen(7777);

@@ -2,6 +2,7 @@ var http = require("http");
 var https = require("https");
 var url = require("url");
 var fs = require("fs");
+var net = require("net");
 
 function writeLog(message)
 {
@@ -92,19 +93,58 @@ server.on("socket", function(socket)
 
 server.on("upgrade", function(request, socket, head)
 {
-	var message = "HTTP/1.0 501 Not Implemented\r\n" +
-		"Content-Type: text/plain\r\n" +
-		"\r\n" +
-		"The request type is not supported by the proxy server\r\n";
-
-	console.log("Received upgrade request.");
-
-	socket.write(message, "utf-8", function()
+	if (request.method == "CONNECT")
 	{
-		console.log("Closing socket connection.");
-		socket.end();
-	});
+		var u = url.parse("http://" + request.url);
+		runSocketProxy(u.hostname, u.port, socket);
+	}
+	else
+	{
+		var message = "HTTP/1.0 501 Not Implemented\r\n" +
+			"Content-Type: text/plain\r\n" +
+			"\r\n" +
+			"The request type is not supported by the proxy server\r\n";
+
+		console.log(request.method);
+
+		socket.write(message, "utf-8", function()
+		{
+			console.log("Closing socket connection.");
+			socket.end();
+		});
+	}
 });
+
+function runSocketProxy(host, port, localSocket)
+{
+	var remoteSocket = net.createConnection(port, host, function()
+	{
+		console.log("remote socket onConnect");
+		localSocket.on('data', function(data)
+		{
+			console.log("local socket onData");
+			remoteSocket.write(data);
+		});
+
+		localSocket.on('end', function(data)
+		{
+			console.log("local socket onEnd");
+			remoteSocket.end();
+		});
+	});
+
+	remoteSocket.on('data', function(data)
+	{
+		console.log("remote socket onData");
+		localSocket.write(data);
+	});
+
+	remoteSocket.on('end', function()
+	{
+		console.log("remote socket onEnd");
+		localSocket.end();
+	});
+}
 
 server.listen(7777);
 

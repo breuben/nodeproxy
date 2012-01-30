@@ -93,6 +93,7 @@ server.on("socket", function(socket)
 
 server.on("upgrade", function(request, socket, head)
 {
+	debugger;
 	if (request.method == "CONNECT")
 	{
 		var u = url.parse("http://" + request.url);
@@ -119,29 +120,27 @@ function runSocketProxy(host, port, localSocket)
 {
 	var remoteSocket = net.createConnection(port, host, function()
 	{
-		console.log("remote socket onConnect");
-		localSocket.on('data', function(data)
-		{
-			console.log("local socket onData");
-			remoteSocket.write(data);
-		});
+		var response = "HTTP/1.1 200 OK\r\n\r\n";
+		localSocket.write(response, "utf8");
+	});
 
-		localSocket.on('end', function(data)
-		{
-			console.log("local socket onEnd");
-			remoteSocket.end();
-		});
+	localSocket.on('data', function(data)
+	{
+		remoteSocket.write(data);
+	});
+
+	localSocket.on('end', function(data)
+	{
+		remoteSocket.end();
 	});
 
 	remoteSocket.on('data', function(data)
 	{
-		console.log("remote socket onData");
 		localSocket.write(data);
 	});
 
 	remoteSocket.on('end', function()
 	{
-		console.log("remote socket onEnd");
 		localSocket.end();
 	});
 }

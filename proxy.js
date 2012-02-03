@@ -4,6 +4,8 @@ var url = require("url");
 var fs = require("fs");
 var net = require("net");
 
+var serverPort = 7777;
+
 function writeLog(message)
 {
 	message += "\n";
@@ -46,17 +48,20 @@ function makeRequest(request, callback)
 
 function onStart(localRequest, localResponse)
 {
-	console.log("Serving request for " + localRequest.url);
+	//console.log("Serving request for " + localRequest.url);
+
+	if (localRequest.method == "CONNECT")
+		console.log("received CONNECT request in weird place");
 
 	var remoteRequest = makeRequest(localRequest, requestComplete);
-	remoteRequest.on('error', requestError);
+	remoteRequest.on("error", requestError);
 
-	localRequest.on('data', function(chunk)
+	localRequest.on("data", function(chunk)
 	{
 		remoteRequest.write(chunk);
 	});
 
-	localRequest.on('end', function()
+	localRequest.on("end", function()
 	{
 		remoteRequest.end();
 	});
@@ -65,12 +70,12 @@ function onStart(localRequest, localResponse)
 	{
 		localResponse.writeHead(remoteResponse.statusCode, remoteResponse.headers);
 
-		remoteResponse.on('data', function(chunk)
+		remoteResponse.on("data", function(chunk)
 		{
 			localResponse.write(chunk);
 		});
 
-		remoteResponse.on('end', function()
+		remoteResponse.on("end", function()
 		{
 			localResponse.end();
 		});
@@ -81,19 +86,12 @@ function onStart(localRequest, localResponse)
 		console.log("Problem with remote request: " + e.message);
 		localResponse.end();
 	}
-
 }
 
 var server = http.createServer(onStart);
 
-server.on("socket", function(socket)
-{
-	console.log("socket");
-});
-
 server.on("upgrade", function(request, socket, head)
 {
-	debugger;
 	if (request.method == "CONNECT")
 	{
 		var u = url.parse("http://" + request.url);
@@ -118,32 +116,50 @@ server.on("upgrade", function(request, socket, head)
 
 function runSocketProxy(host, port, localSocket)
 {
+	console.log("Serving CONNECT request to " + host + ":" + port);
 	var remoteSocket = net.createConnection(port, host, function()
 	{
 		var response = "HTTP/1.1 200 OK\r\n\r\n";
 		localSocket.write(response, "utf8");
 	});
 
-	localSocket.on('data', function(data)
+	localSocket.on("data", function(data)
 	{
-		remoteSocket.write(data);
+		try
+		{
+			remoteSocket.write(data);
+		}
+		catch (e) { }
 	});
 
-	localSocket.on('end', function(data)
+	localSocket.on("end", function(data)
 	{
-		remoteSocket.end();
+		try
+		{
+			remoteSocket.end();
+		}
+		catch (e) { }
 	});
 
-	remoteSocket.on('data', function(data)
+	remoteSocket.on("data", function(data)
 	{
-		localSocket.write(data);
+		try
+		{
+			localSocket.write(data);
+		}
+		catch (e) { }
 	});
 
-	remoteSocket.on('end', function()
+	remoteSocket.on("end", function()
 	{
-		localSocket.end();
+		try
+		{
+			localSocket.end();
+		}
+		catch (e) { }
 	});
 }
 
-server.listen(7777);
+server.listen(serverPort);
+console.log("Server listening on port " + serverPort + "...");
 

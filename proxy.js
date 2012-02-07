@@ -1,6 +1,6 @@
 var http = require("http");
 var https = require("https");
-var url = require("url");
+var parseUrl = require("url").parse;
 var fs = require("fs");
 var net = require("net");
 
@@ -15,11 +15,11 @@ function writeLog(message)
 	fs.closeSync(logFile);
 }
 
-function getPort(uri)
+function getPort(url)
 {
-	if (uri.port != undefined)
-		return uri.port;
-	else if (uri.protocol == "https")
+	if (url.port != undefined)
+		return url.port;
+	else if (url.protocol == "https")
 		return 443;
 	else
 		return 80;
@@ -27,12 +27,12 @@ function getPort(uri)
 
 function makeRequest(request, callback)
 {
-	var requestUrl = url.parse(request.url);
+	var url = parseUrl(request.url);
 
 	var options = {
 		host: request.headers.host,
-		port: getPort(requestUrl),
-		path: requestUrl.pathname,
+		port: getPort(url),
+		path: url.pathname,
 		method: request.method,
 		headers: request.headers
 	}
@@ -40,13 +40,15 @@ function makeRequest(request, callback)
 	delete options.headers.host;
 	delete options.headers["proxy-connection"];
 
-	if (requestUrl.protocol == "https")
+	if (url.protocol == "https")
 		return https.request(options, callback);
 	else
 		return http.request(options, callback);
 }
 
-function onStart(localRequest, localResponse)
+var server = http.createServer();
+
+server.on("request", function (localRequest, localResponse)
 {
 	//console.log("Serving request for " + localRequest.url);
 
@@ -86,15 +88,14 @@ function onStart(localRequest, localResponse)
 		console.log("Problem with remote request: " + e.message);
 		localResponse.end();
 	}
-}
+});
 
-var server = http.createServer(onStart);
 
 server.on("upgrade", function(request, socket, head)
 {
 	if (request.method == "CONNECT")
 	{
-		var u = url.parse("http://" + request.url);
+		var u = parseUrl("http://" + request.url);
 		runSocketProxy(u.hostname, u.port, socket);
 	}
 	else
